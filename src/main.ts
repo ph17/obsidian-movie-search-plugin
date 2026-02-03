@@ -20,7 +20,9 @@ import {
 	make_file_name_for_,
 	make_folder_path_for_,
 	apply_default_frontmatter,
+	is_entry_in_template,
 } from "@utils/utils";
+import { download_image, save_to_folder } from "@utils/image_downloader";
 
 export default class MovieSearchPlugin extends Plugin {
 	settings: MovieSearchPluginSettings;
@@ -92,12 +94,17 @@ export default class MovieSearchPlugin extends Plugin {
 			template_file,
 			use_default_frontmatter,
 			default_frontmatter_key_type,
+			local_image_path,
 			frontmatter, // @deprecated
 			content, // @deprecated
 		} = this.settings;
-
 		if (template_file) {
 			const template_contents = await get_template_contents(this.app, template_file);
+
+			if (local_image_path?.trim()) {
+				await this.save_poster_and_backdrop_locally(local_image_path, template_contents, movie);
+			}
+
 			const replaced_variable = replace_variable_syntax(movie, apply_template_transformations(template_contents));
 			return execute_inline_scripts_template(movie, replaced_variable);
 		}
@@ -270,5 +277,30 @@ export default class MovieSearchPlugin extends Plugin {
 			}
 		}
 		return movie_parts;
+	}
+
+	private async save_poster_and_backdrop_locally(local_image_path: string, template_contents: string, movie: Movie) {
+		await Promise.all([
+			this.save_image_if_in_template("backdrop_path", local_image_path, template_contents, "_banner", movie),
+			this.save_image_if_in_template("poster_path", local_image_path, template_contents, "_poster", movie),
+		]);
+	}
+
+	private async save_image_if_in_template(
+		variable: string,
+		local_path: string,
+		template_contents: string,
+		suffix: string,
+		movie: Movie,
+	) {
+		if (!is_entry_in_template(variable, template_contents)) return;
+
+		const image = await download_image(movie[variable], movie.title);
+
+		if (image) {
+			image.file_name = `${movie.title}${suffix}`;
+			await save_to_folder(this.app, local_path, image);
+			movie[variable] = `${image.file_name}.${image.extension}`;
+		}
 	}
 }

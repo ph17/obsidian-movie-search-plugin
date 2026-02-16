@@ -52,7 +52,7 @@ export default class MovieSearchPlugin extends Plugin {
 		console.log(
 			`Movie Search: version ${this.manifest.version} (requires obsidian ${this.manifest.minAppVersion})`,
 		);
-	}
+	}me
 
 	show_notice(message: unknown) {
 		try {
@@ -298,7 +298,8 @@ export default class MovieSearchPlugin extends Plugin {
 		const image = await download_image(movie[variable], movie.title);
 
 		if (image) {
-			image.file_name = `${movie.title}${suffix}`;
+			const sanitizedTitle = movie.title.replace(/:/g, "");
+			image.file_name = `${sanitizedTitle}${suffix}`;
 			await save_to_folder(this.app, local_path, image);
 			movie[variable] = `${image.file_name}.${image.extension}`;
 		}
